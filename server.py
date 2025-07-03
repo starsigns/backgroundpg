@@ -53,6 +53,6 @@ def serve_index():
 @app.route('/<path:path>')
 def serve_static(path):
     return send_from_directory('.', path)
-
+# Serve the log file for download
 if __name__ == '__main__':
     app.run(debug=True)
